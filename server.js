@@ -137,6 +137,7 @@ function endpoint(schema, type) {
 app.post('/api/applications', submissionLimiter, endpoint(applicationSchema, 'application'));
 app.post('/api/contact', submissionLimiter, endpoint(contactSchema, 'contact'));
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
+app.get('/dashboard', (_req, res) => res.sendFile(path.join(publicDir, 'dashboard.html')));
 app.use(express.static(publicDir, { dotfiles: 'deny', etag: true, maxAge: isProduction ? '1h' : 0, index: 'index.html' }));
 app.use('/api', (_req, res) => res.status(404).json({ ok: false, message: 'Not found.' }));
 app.use((_req, res) => res.status(404).sendFile(path.join(publicDir, 'index.html')));
