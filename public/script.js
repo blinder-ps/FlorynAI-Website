@@ -36,7 +36,18 @@ async function submitForm(form, endpoint) {
       credentials: 'same-origin'
     });
     const result = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(result.message || 'Unable to send your request.');
+    if (!response.ok) {
+      if (result.fields && typeof result.fields === 'object') {
+        const messages = [];
+        Object.entries(result.fields).forEach(([name, fieldMessages]) => {
+          const field = form.elements.namedItem(name);
+          if (field) field.classList.add('invalid');
+          if (Array.isArray(fieldMessages)) messages.push(...fieldMessages);
+        });
+        if (messages.length) throw new Error([...new Set(messages)].join(' '));
+      }
+      throw new Error(result.message || 'Unable to send your request.');
+    }
     form.reset();
     form.querySelector('.success')?.classList.add('show');
   } catch (requestError) {
@@ -50,6 +61,10 @@ async function submitForm(form, endpoint) {
 
 const applicationForm = document.querySelector('.access-form:not(.contact-form)');
 const contactForm = document.querySelector('.contact-form');
+if (applicationForm) {
+  applicationForm.elements.usecase.minLength = 10;
+  applicationForm.elements.social.setAttribute('inputmode', 'url');
+}
 applicationForm?.addEventListener('submit', event => { event.preventDefault(); submitForm(applicationForm, '/api/applications'); });
 contactForm?.addEventListener('submit', event => { event.preventDefault(); submitForm(contactForm, '/api/contact'); });
 document.querySelectorAll('form [required]').forEach(field => field.addEventListener('input', () => field.classList.remove('invalid')));

@@ -60,13 +60,16 @@ const submissionLimiter = rateLimit({
 
 const clean = z.string().trim().min(1).max(200).transform(value => value.replace(/[<>]/g, ''));
 const email = z.string().trim().email().max(254);
+const webAddress = z.string().trim().min(3, 'Enter a social profile or website.').max(500)
+  .transform(value => /^https?:\/\//i.test(value) ? value : `https://${value}`)
+  .pipe(z.string().url('Enter a valid social profile or website.'));
 const applicationSchema = z.object({
   name: clean,
   email,
   category: z.enum(['Independent Model', 'Model Agency']),
   audience: clean,
-  social: z.string().trim().url().max(500),
-  usecase: z.string().trim().min(10).max(3000).transform(value => value.replace(/[<>]/g, '')),
+  social: webAddress,
+  usecase: z.string().trim().min(10, 'Tell us a little more about your use case (at least 10 characters).').max(3000).transform(value => value.replace(/[<>]/g, '')),
   company: z.string().max(0).optional().default('')
 }).strict();
 const contactSchema = z.object({
@@ -113,7 +116,13 @@ async function sendSubmission(type, data) {
 function endpoint(schema, type) {
   return async (req, res) => {
     const parsed = schema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ ok: false, message: 'Please check the form fields and try again.' });
+    if (!parsed.success) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Please check the highlighted fields and try again.',
+        fields: parsed.error.flatten().fieldErrors
+      });
+    }
     if (parsed.data.company) return res.status(200).json({ ok: true });
     try {
       await sendSubmission(type, parsed.data);
