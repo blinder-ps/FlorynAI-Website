@@ -12,6 +12,7 @@ const { z } = require('zod');
 const app = express();
 const port = Number(process.env.PORT) || 3000;
 const root = __dirname;
+const publicDir = path.join(root, 'public');
 const isProduction = process.env.NODE_ENV === 'production';
 const mailTo = process.env.MAIL_TO || 'info@florynai.com';
 const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS || '').split(',').map(v => v.trim()).filter(Boolean));
@@ -127,12 +128,16 @@ function endpoint(schema, type) {
 app.post('/api/applications', submissionLimiter, endpoint(applicationSchema, 'application'));
 app.post('/api/contact', submissionLimiter, endpoint(contactSchema, 'contact'));
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
-app.use(express.static(root, { dotfiles: 'deny', etag: true, maxAge: isProduction ? '1h' : 0, index: 'index.html' }));
+app.use(express.static(publicDir, { dotfiles: 'deny', etag: true, maxAge: isProduction ? '1h' : 0, index: 'index.html' }));
 app.use('/api', (_req, res) => res.status(404).json({ ok: false, message: 'Not found.' }));
-app.use((_req, res) => res.status(404).sendFile(path.join(root, 'index.html')));
+app.use((_req, res) => res.status(404).sendFile(path.join(publicDir, 'index.html')));
 app.use((error, _req, res, _next) => {
   console.error('Unhandled request error:', error.message);
   res.status(500).json({ ok: false, message: 'Unexpected server error.' });
 });
 
-app.listen(port, '0.0.0.0', () => console.log(`Floryn AI listening on port ${port}`));
+if (require.main === module) {
+  app.listen(port, '0.0.0.0', () => console.log(`Floryn AI listening on port ${port}`));
+}
+
+module.exports = app;
