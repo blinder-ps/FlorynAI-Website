@@ -66,3 +66,4 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   footer{padding-top:55px}.footer-top{gap:30px;padding-bottom:42px}.footer-top .brand-mark{width:150px}.footer-links{grid-template-columns:1fr 1fr;row-gap:34px}.footer-links div:last-child{grid-column:1/3}.footer-links a{font-size:12px;padding-block:2px}.footer-bottom{gap:16px;line-height:1.6}
 }
 @media(max-width:380px){h1{font-size:39px}.container{width:calc(100% - 24px);max-width:calc(100% - 24px)}.hero{padding-top:120px}.hero-product{width:100%;margin-left:0}.person button{display:none}.analytics-stats span{letter-spacing:0}.footer-links{gap:20px}.feature-grid article{padding:19px}}
+@media(min-width:1051px){.mobile-login{display:none}}
