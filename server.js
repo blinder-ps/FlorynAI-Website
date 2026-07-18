@@ -146,11 +146,13 @@ app.use('/api/agency', dashboardRouter);
 app.get('/api/auth/config', (_req, res) => res.json({ url: process.env.SUPABASE_URL || '', anonKey: process.env.SUPABASE_ANON_KEY || '' }));
 app.get('/api/auth/resolve', requireAuth, async (req, res) => {
   const client = getSupabaseForToken(req.accessToken);
-  const [models, agencies] = await Promise.all([
+  const [profile, models, agencies] = await Promise.all([
+    client.from('profiles').select('platform_role,status').eq('id', req.userId).maybeSingle(),
     client.from('model_members').select('model_id,role,status').eq('user_id', req.userId).eq('status', 'active'),
     client.from('agency_members').select('agency_id,role,status').eq('user_id', req.userId).eq('status', 'active')
   ]);
-  if (models.error || agencies.error) return res.status(503).json({ success: false, error: { code: 'access_lookup_failed', message: 'Unable to resolve account access.' } });
+  if (profile.error || models.error || agencies.error) return res.status(503).json({ success: false, error: { code: 'access_lookup_failed', message: 'Unable to resolve account access.' } });
+  if (profile.data?.platform_role === 'platform_admin' && profile.data.status === 'active') return res.json({ success: true, destination: 'platform', models: [], agencies: [] });
   if (!models.data?.length && !agencies.data?.length) return res.status(403).json({ success: false, error: { code: 'no_membership', message: 'No active membership.' } });
   return res.json({ success: true, destination: agencies.data?.length ? 'agency' : 'model', models: models.data?.map(row => row.model_id) || [], agencies: agencies.data?.map(row => ({ id: row.agency_id, role: row.role })) || [] });
 });
