@@ -3,10 +3,14 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const number = new Intl.NumberFormat('en-US');
-const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+let selectedCurrency = 'USD';
+let exchangeRate = 1;
+const money = (amount) => new Intl.NumberFormat('en-US', { style: 'currency', currency: selectedCurrency }).format(numeric(amount) * exchangeRate);
 let range = '1M';
 let transactions = [];
 let history = [];
+let selectedModelId = null;
+let accountContext = null;
 const authConfig = await fetch('/api/auth/config').then((response) => response.json());
 const supabase = createClient(authConfig.url, authConfig.anonKey, { auth: { persistSession: true, autoRefreshToken: true } });
 const { data: { session } } = await supabase.auth.getSession();
@@ -44,13 +48,12 @@ function renderSummary(payload = {}) {
   const buyers = numeric(data.uniqueBuyers ?? data.unique_buyers ?? data.buyers);
   const messages = numeric(data.messages ?? data.total_messages);
   $('#credits-total').textContent = number.format(stars);
-  $('#revenue-total').textContent = currency.format(revenue);
+  $('#revenue-total').textContent = money(revenue);
   $('#sales-total').textContent = number.format(sales);
   $('#buyers-total').textContent = number.format(buyers);
   $('#messages-total').textContent = number.format(messages);
-  $('#average-total').textContent = currency.format(buyers ? revenue / buyers : 0);
-  $('#chart-total').textContent = currency.format(revenue);
-  $('#workspace-name').textContent = data.workspaceName ?? data.workspace_name ?? data.agencyName ?? data.agency_name ?? 'My earnings';
+  $('#average-total').textContent = money(buyers ? revenue / buyers : 0);
+  $('#chart-total').textContent = money(revenue);
   $('#view-title').textContent = data.title ?? (data.role === 'agency' ? 'Agency earnings' : 'Your earnings');
   $('#view-description').textContent = 'Live earnings synced securely from Telegram.';
   const modelCount = data.modelCount ?? data.model_count;
@@ -64,7 +67,7 @@ function renderTransactions(filter = '') {
     const user = escapeHtml(item.user ?? item.customer ?? 'Customer');
     const model = escapeHtml(item.model ?? item.model_name ?? '—');
     const initials = user.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
-    return `<div class="transaction"><div class="user"><i>${initials}</i><span><b>${user}</b><small>${escapeHtml(item.time ?? item.created_at ?? '')}</small></span></div><span class="model-name">${model}</span><span class="credit-pill">✦ ${number.format(numeric(item.stars ?? item.credits))}</span><strong>${currency.format(numeric(item.revenue ?? item.amount))}</strong></div>`;
+    return `<div class="transaction"><div class="user"><i>${initials}</i><span><b>${user}</b><small>${escapeHtml(item.time ?? item.created_at ?? '')}</small></span></div><span class="model-name">${model}</span><span class="credit-pill">✦ ${number.format(numeric(item.stars ?? item.credits))}</span><strong>${money(item.revenue ?? item.amount)}</strong></div>`;
   }).join('') || '<p class="empty">No transactions found for this period.</p>';
 }
 
@@ -73,7 +76,7 @@ function renderModels(payload) {
   $('#model-grid').innerHTML = models.map((model) => {
     const name = escapeHtml(model.name ?? model.display_name ?? 'Model');
     const initials = name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
-    return `<article class="model-card"><div class="model-card-head"><i class="model-avatar">${initials}</i><p><b>${name}</b><span>${escapeHtml(model.handle ?? '')}</span></p></div><strong>${currency.format(numeric(model.revenue ?? model.total_revenue))}</strong><span>✦ ${number.format(numeric(model.stars ?? model.total_stars))} stars</span></article>`;
+    return `<article class="model-card" data-model-id="${escapeHtml(model.id)}"><div class="model-card-head"><i class="model-avatar">${initials}</i><p><b>${name}</b><span>${escapeHtml(model.handle ?? '')}</span></p></div><strong>${money(model.revenue ?? model.total_revenue)}</strong><span>✦ ${number.format(numeric(model.stars ?? model.total_stars))} stars</span></article>`;
   }).join('') || '<p class="empty">No models have reported earnings yet.</p>';
   $('.models-panel').hidden = models.length === 0;
 }
@@ -100,15 +103,53 @@ function drawChart() {
   context.strokeStyle = '#43e28b'; context.lineWidth = 2; context.stroke();
 }
 
+function modelQuery() {
+  return selectedModelId ? `&modelId=${encodeURIComponent(selectedModelId)}` : '';
+}
+
+function selectWorkspace(modelId) {
+  selectedModelId = modelId || null;
+  const model = accountContext?.models?.find((item) => item.id === selectedModelId);
+  $('#workspace-name').textContent = model?.display_name || (accountContext?.can_combine ? 'All models' : accountContext?.account_label || 'My earnings');
+  $$('#workspace-menu button').forEach((button) => button.classList.toggle('active', (button.dataset.modelId || null) === selectedModelId));
+  $('#workspace-menu').classList.remove('open');
+  $('#workspace-button').setAttribute('aria-expanded', 'false');
+  loadDashboard();
+}
+
+function renderContext(context) {
+  accountContext = context;
+  const models = context.models || [];
+  $('#account-type').textContent = String(context.account_label || 'Account').toUpperCase();
+  const button = $('#workspace-button');
+  const menu = $('#workspace-menu');
+  if (context.account_type === 'model') {
+    selectedModelId = models[0]?.id || null;
+    $('#workspace-name').textContent = models[0]?.display_name || 'Model account';
+    button.classList.add('static'); button.disabled = true; menu.innerHTML = '';
+    return;
+  }
+  button.classList.remove('static'); button.disabled = false;
+  menu.innerHTML = `${context.can_combine ? '<button type="button" data-model-id=""><i>ALL</i><span>All models combined</span></button>' : ''}${models.map((model) => { const name = escapeHtml(model.display_name); const initials = name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase(); return `<button type="button" data-model-id="${escapeHtml(model.id)}"><i>${initials}</i><span>${name}</span></button>`; }).join('')}${models.length ? '' : '<p class="menu-empty">No active models yet</p>'}`;
+  $('#workspace-name').textContent = 'All models';
+  $$('#workspace-menu button').forEach((item) => item.addEventListener('click', () => selectWorkspace(item.dataset.modelId || null)));
+}
+
+async function loadContext() {
+  const context = await api('/api/dashboard/context');
+  renderContext(context);
+  return (context.models || []).length > 0;
+}
+
 async function loadDashboard() {
   resetMetrics();
   $('#transactions').innerHTML = '<p class="empty">Loading live data…</p>';
   $('#model-grid').innerHTML = '<p class="empty">Loading models…</p>';
   try {
     const [summary, revenue, activity, models, health] = await Promise.all([
-      api(`/api/dashboard/summary?range=${range}`), api(`/api/dashboard/revenue-history?range=${range}`),
-      api(`/api/dashboard/transactions?range=${range}`), api('/api/agency/models').catch(() => ({ models: [] })),
-      api('/api/dashboard/sync-health').catch(() => null)
+      api(`/api/dashboard/summary?range=${range}${modelQuery()}`), api(`/api/dashboard/revenue-history?range=${range}${modelQuery()}`),
+      api(`/api/dashboard/transactions?range=${range}${modelQuery()}`), api(`/api/agency/models?range=${range}${modelQuery()}`).catch(() => ({ models: [] })),
+      api(`/api/dashboard/sync-health?range=${range}${modelQuery()}`).catch(() => null)
     ]);
     renderSummary(summary);
     history = list(revenue, 'history', 'data', 'points');
@@ -129,6 +170,13 @@ async function loadDashboard() {
 $$('.ranges button').forEach((button) => button.addEventListener('click', () => { range = button.dataset.range; $$('.ranges button').forEach((item) => item.classList.toggle('active', item === button)); loadDashboard(); }));
 $('#transaction-search').addEventListener('input', (event) => renderTransactions(event.target.value));
 $('#refresh').addEventListener('click', () => { document.body.classList.add('refreshing'); loadDashboard(); });
+$('#workspace-button').addEventListener('click', () => { if ($('#workspace-button').disabled) return; const open = $('#workspace-menu').classList.toggle('open'); $('#workspace-button').setAttribute('aria-expanded', String(open)); });
+document.addEventListener('click', (event) => { if (!event.target.closest('.workspace-wrap')) { $('#workspace-menu').classList.remove('open'); $('#workspace-button').setAttribute('aria-expanded', 'false'); } });
+$$('.currency').forEach((button) => button.addEventListener('click', async () => {
+  if (button.textContent === selectedCurrency) return;
+  $$('.currency').forEach((item) => { item.disabled = true; });
+  try { const result = await api(`/api/dashboard/exchange-rate?currency=${button.textContent}`); selectedCurrency = result.currency; exchangeRate = result.rate; $$('.currency').forEach((item) => item.classList.toggle('active', item.textContent === selectedCurrency)); renderTransactions($('#transaction-search').value); drawChart(); await loadDashboard(); } finally { $$('.currency').forEach((item) => { item.disabled = false; }); }
+}));
 $('.mobile-menu').addEventListener('click', (event) => { const open = $('.top-actions').classList.toggle('open'); event.currentTarget.setAttribute('aria-expanded', String(open)); });
 window.addEventListener('resize', drawChart);
-loadDashboard();
+try { const hasModels = await loadContext(); if (hasModels) loadDashboard(); else { resetMetrics(); $('#view-title').textContent = 'No models connected yet'; $('#view-description').textContent = 'Add a model mapping in Supabase, then run the n8n earnings sync.'; $('#transactions').innerHTML = '<p class="empty">No transactions available.</p>'; $('#model-grid').innerHTML = '<p class="empty">No active models.</p>'; $('.eyebrow span').textContent = 'NO DATA'; drawChart(); } } catch { location.assign('/access-denied'); }

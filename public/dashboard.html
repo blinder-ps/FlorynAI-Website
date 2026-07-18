@@ -10,13 +10,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="dashboard.css">
+  <link rel="stylesheet" href="dashboard-controls.css">
 </head>
 <body>
   <div class="grid-bg" aria-hidden="true"></div>
   <header class="topbar">
     <a class="logo" href="/" aria-label="Floryn home"><img src="images/logo.png" alt="Floryn"></a>
-    <button class="workspace" type="button" aria-haspopup="listbox"><span class="avatar">FL</span><span><small>WORKSPACE</small><b id="workspace-name">Loading…</b></span><i>⌄</i></button>
-    <nav class="tabs" aria-label="Dashboard views"><button class="active" data-view="portfolio">Portfolio</button><button data-view="model">Model view</button></nav>
+    <div class="workspace-wrap"><button class="workspace" id="workspace-button" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="avatar">FL</span><span><small id="account-type">ACCOUNT</small><b id="workspace-name">Loading…</b></span><i>⌄</i></button><div class="workspace-menu" id="workspace-menu" role="listbox"></div></div>
     <div class="top-actions"><span class="sync"><i></i> Connecting…</span><button class="icon-btn" id="refresh" type="button" aria-label="Refresh data">↻</button><button class="currency active" type="button">USD</button><button class="currency" type="button">AUD</button><a class="exit" href="/">Exit dashboard</a></div>
     <button class="mobile-menu" type="button" aria-label="Open controls" aria-expanded="false">•••</button>
   </header>

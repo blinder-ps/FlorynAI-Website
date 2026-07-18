@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '../supabase.js';
 
 export const dashboardRouter=Router();
 dashboardRouter.use(requireAuth);
+let audCache:{rate:number;expires:number}|null=null;
 
 const querySchema=z.object({modelId:z.string().uuid().optional(),range:z.enum(['1D','3D','1W','1M','3M','6M','1Y']).default('1M'),timezone:z.string().min(1).max(80).default('UTC'),search:z.string().max(100).optional(),cursor:z.string().datetime({offset:true}).optional(),type:z.string().max(80).optional()});
 const rangeDays:Record<string,number>={'1D':1,'3D':3,'1W':7,'1M':30,'3M':90,'6M':180,'1Y':365};
@@ -37,6 +38,31 @@ async function scope(req:AuthenticatedRequest,res:Response,modelId?:string){
   return modelId?[modelId]:ids;
 }
 
+dashboardRouter.get('/context',async(req:AuthenticatedRequest,res:Response)=>{
+  const admin=getSupabaseAdmin();
+  const [profile,agencyMemberships,modelMemberships]=await Promise.all([
+    admin.from('profiles').select('platform_role,status').eq('id',req.userId!).maybeSingle(),
+    admin.from('agency_members').select('agency_id,role,agencies(name)').eq('user_id',req.userId!).eq('status','active'),
+    admin.from('model_members').select('model_id').eq('user_id',req.userId!).eq('status','active')
+  ]);
+  if(profile.error||agencyMemberships.error||modelMemberships.error)return fail(res,503,'context_unavailable','Unable to load account context.');
+  const modelIds=await allowedModels(req.userId!);
+  const models=modelIds.length?await admin.from('models').select('id,display_name,currency,status').in('id',modelIds).eq('status','active').order('display_name'):{data:[],error:null};
+  if(models.error)return fail(res,503,'context_unavailable','Unable to load account models.');
+  const isAdmin=profile.data?.platform_role==='platform_admin';
+  const hasAgency=(agencyMemberships.data?.length||0)>0;
+  const accountType=isAdmin?'admin':hasAgency?'agency':'model';
+  const agencyRow=agencyMemberships.data?.[0] as any;
+  return res.json({success:true,account_type:accountType,account_label:isAdmin?'Admin account':hasAgency?(agencyRow?.agencies?.name||'Agency account'):'Model account',can_combine:accountType!=='model',models:models.data||[]});
+});
+
+dashboardRouter.get('/exchange-rate',async(req:AuthenticatedRequest,res:Response)=>{
+  const currency=z.enum(['USD','AUD']).safeParse(req.query.currency);if(!currency.success)return fail(res,400,'invalid_currency','Unsupported currency.');
+  if(currency.data==='USD')return res.json({success:true,currency:'USD',rate:1});
+  if(audCache&&audCache.expires>Date.now())return res.json({success:true,currency:'AUD',rate:audCache.rate});
+  try{const response=await fetch('https://api.frankfurter.app/latest?from=USD&to=AUD',{signal:AbortSignal.timeout(5000)});if(!response.ok)throw new Error('rate unavailable');const payload=await response.json() as {rates?:{AUD?:number}};const rate=payload.rates?.AUD;if(!rate||!Number.isFinite(rate))throw new Error('invalid rate');audCache={rate,expires:Date.now()+21600000};return res.json({success:true,currency:'AUD',rate});}catch{return fail(res,503,'exchange_rate_unavailable','AUD conversion is temporarily unavailable.');}
+});
+
 dashboardRouter.get('/summary',async(req:AuthenticatedRequest,res:Response)=>{
   const parsed=querySchema.safeParse(req.query);if(!parsed.success)return fail(res,400,'invalid_query','Invalid dashboard filters.');
   const modelIds=await scope(req,res,parsed.data.modelId);if(!modelIds)return;const {start,end}=bounds(parsed.data.range);const admin=getSupabaseAdmin();
@@ -67,5 +93,5 @@ dashboardRouter.get('/sync-health',async(req:AuthenticatedRequest,res:Response)=
 });
 
 dashboardRouter.get('/models',async(req:AuthenticatedRequest,res:Response)=>{
-  const parsed=querySchema.safeParse(req.query);if(!parsed.success)return fail(res,400,'invalid_query','Invalid dashboard filters.');const modelIds=await scope(req,res);if(!modelIds)return;const {start,end}=bounds(parsed.data.range);const admin=getSupabaseAdmin();const [models,tx]=await Promise.all([admin.from('models').select('id,display_name,slug,profile_image_url,currency').in('id',modelIds),admin.from('transactions').select('model_id,gross_amount_cents,stars').in('model_id',modelIds).gte('occurred_at',start).lt('occurred_at',end).eq('transaction_status','completed').limit(10000)]);if(models.error||tx.error)return fail(res,503,'models_unavailable','Unable to load models.');const totals=new Map<string,{revenue:number,stars:number}>();for(const row of tx.data||[]){const item=totals.get(row.model_id)||{revenue:0,stars:0};item.revenue+=Number(row.gross_amount_cents)/100;item.stars+=Number(row.stars);totals.set(row.model_id,item);}return res.json({success:true,models:(models.data||[]).map(model=>({...model,total_revenue:totals.get(model.id)?.revenue||0,total_stars:totals.get(model.id)?.stars||0}))});
+  const parsed=querySchema.safeParse(req.query);if(!parsed.success)return fail(res,400,'invalid_query','Invalid dashboard filters.');const modelIds=await scope(req,res,parsed.data.modelId);if(!modelIds)return;const {start,end}=bounds(parsed.data.range);const admin=getSupabaseAdmin();const [models,tx]=await Promise.all([admin.from('models').select('id,display_name,slug,profile_image_url,currency').in('id',modelIds),admin.from('transactions').select('model_id,gross_amount_cents,stars').in('model_id',modelIds).gte('occurred_at',start).lt('occurred_at',end).eq('transaction_status','completed').limit(10000)]);if(models.error||tx.error)return fail(res,503,'models_unavailable','Unable to load models.');const totals=new Map<string,{revenue:number,stars:number}>();for(const row of tx.data||[]){const item=totals.get(row.model_id)||{revenue:0,stars:0};item.revenue+=Number(row.gross_amount_cents)/100;item.stars+=Number(row.stars);totals.set(row.model_id,item);}return res.json({success:true,models:(models.data||[]).map(model=>({...model,total_revenue:totals.get(model.id)?.revenue||0,total_stars:totals.get(model.id)?.stars||0}))});
 });
