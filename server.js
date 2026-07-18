@@ -12,6 +12,7 @@ const { n8nRouter } = require('./dist/src/routes/n8n.js');
 const { dashboardRouter } = require('./dist/src/routes/dashboard.js');
 const { requireAuth } = require('./dist/src/auth.js');
 const { getSupabaseForToken } = require('./dist/src/supabase.js');
+const { getSupabaseAdmin } = require('./dist/src/supabase.js');
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -145,7 +146,7 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/agency', dashboardRouter);
 app.get('/api/auth/config', (_req, res) => res.json({ url: process.env.SUPABASE_URL || '', anonKey: process.env.SUPABASE_ANON_KEY || '' }));
 app.get('/api/auth/resolve', requireAuth, async (req, res) => {
-  const client = getSupabaseForToken(req.accessToken);
+  const client = getSupabaseAdmin();
   const [profile, models, agencies] = await Promise.all([
     client.from('profiles').select('platform_role,status').eq('id', req.userId).maybeSingle(),
     client.from('model_members').select('model_id,role,status').eq('user_id', req.userId).eq('status', 'active'),
