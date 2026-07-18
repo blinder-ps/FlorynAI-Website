@@ -1,0 +1,11 @@
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+const config=await fetch('/api/auth/config').then(r=>r.json());
+if(!config.url||!config.anonKey)throw new Error('Authentication is not configured.');
+const supabase=createClient(config.url,config.anonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+const form=document.querySelector('form'),message=document.querySelector('.message'),mode=document.body.dataset.mode;
+const show=(text,ok=false)=>{message.textContent=text;message.classList.toggle('ok',ok)};
+async function route(session){const r=await fetch('/api/auth/resolve',{headers:{Authorization:`Bearer ${session.access_token}`}});if(r.status===403){location.href='/access-denied';return}if(!r.ok)throw new Error('Unable to determine account access.');location.href='/dashboard'}
+if(mode==='login')form.addEventListener('submit',async e=>{e.preventDefault();show('');const button=form.querySelector('button');button.disabled=true;const {data,error}=await supabase.auth.signInWithPassword({email:form.email.value,password:form.password.value});button.disabled=false;if(error)return show('Email or password is incorrect.');await route(data.session)});
+if(mode==='forgot')form.addEventListener('submit',async e=>{e.preventDefault();const {error}=await supabase.auth.resetPasswordForEmail(form.email.value,{redirectTo:`${location.origin}/reset-password`});show(error?'Unable to send the reset email.':'If the account exists, a reset link has been sent.',!error)});
+if(mode==='reset'){const {data}=await supabase.auth.getSession();if(!data.session)show('Open this page using the link in your password-reset email.');form.addEventListener('submit',async e=>{e.preventDefault();if(form.password.value.length<10)return show('Use at least 10 characters.');if(form.password.value!==form.confirm.value)return show('Passwords do not match.');const {error}=await supabase.auth.updateUser({password:form.password.value});show(error?'Password could not be updated.':'Password updated. Redirecting…',!error);if(!error)setTimeout(()=>location.href='/login',900)})}
+if(mode==='callback'){const {data,error}=await supabase.auth.getSession();if(error||!data.session)show('The invitation link is invalid or expired.');else await route(data.session)}

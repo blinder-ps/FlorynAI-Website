@@ -1,0 +1,11 @@
+begin;
+create extension if not exists pgcrypto;
+create type public.platform_role as enum ('standard','platform_admin');
+create type public.profile_status as enum ('invited','active','disabled');
+create type public.agency_status as enum ('active','suspended','archived');
+create type public.agency_member_role as enum ('manager','administrator');
+create type public.membership_status as enum ('invited','active','disabled');
+create type public.model_status as enum ('active','paused','disabled');
+create type public.model_member_role as enum ('owner','viewer');
+create type public.sync_status as enum ('processing','succeeded','partially_succeeded','failed');
+commit;

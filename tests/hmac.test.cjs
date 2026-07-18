@@ -1,0 +1,4 @@
+const test=require('node:test'); const assert=require('node:assert/strict'); const {createN8nSignature,verifyN8nSignature,isFreshTimestamp}=require('../dist/src/security/hmac.js');
+test('valid HMAC verifies against the original raw body',()=>{const body=Buffer.from('{"hello":"world"}');const ts='2026-07-17T02:00:00.000Z';const sig=createN8nSignature('x'.repeat(32),ts,body);assert.equal(verifyN8nSignature('x'.repeat(32),ts,body,sig),true);assert.equal(verifyN8nSignature('x'.repeat(32),ts,Buffer.from('{}'),sig),false)});
+test('malformed signatures are rejected without throwing',()=>assert.equal(verifyN8nSignature('x'.repeat(32),'now',Buffer.from('{}'),'bad'),false));
+test('timestamps outside five minutes are rejected',()=>{const now=Date.parse('2026-07-17T02:10:00Z');assert.equal(isFreshTimestamp('2026-07-17T02:06:00Z',now),true);assert.equal(isFreshTimestamp('2026-07-17T02:04:59Z',now),false)});

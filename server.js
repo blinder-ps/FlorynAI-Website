@@ -8,6 +8,10 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const nodemailer = require('nodemailer');
 const { z } = require('zod');
+const { n8nRouter } = require('./dist/src/routes/n8n.js');
+const { dashboardRouter } = require('./dist/src/routes/dashboard.js');
+const { requireAuth } = require('./dist/src/auth.js');
+const { getSupabaseForToken } = require('./dist/src/supabase.js');
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -23,11 +27,11 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
+      scriptSrc: ["'self'", 'https://cdn.jsdelivr.net'],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com'],
       imgSrc: ["'self'", 'data:'],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", 'https://*.supabase.co'],
       formAction: ["'self'"],
       frameAncestors: ["'none'"],
       upgradeInsecureRequests: isProduction ? [] : null
@@ -38,6 +42,7 @@ app.use(helmet({
   referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
 }));
 app.use(compression());
+app.use('/api/internal/n8n', n8nRouter);
 app.use(express.json({ limit: '20kb', strict: true }));
 app.use(express.urlencoded({ extended: false, limit: '20kb' }));
 
@@ -136,7 +141,25 @@ function endpoint(schema, type) {
 
 app.post('/api/applications', submissionLimiter, endpoint(applicationSchema, 'application'));
 app.post('/api/contact', submissionLimiter, endpoint(contactSchema, 'contact'));
+app.use('/api/dashboard', dashboardRouter);
+app.use('/api/agency', dashboardRouter);
+app.get('/api/auth/config', (_req, res) => res.json({ url: process.env.SUPABASE_URL || '', anonKey: process.env.SUPABASE_ANON_KEY || '' }));
+app.get('/api/auth/resolve', requireAuth, async (req, res) => {
+  const client = getSupabaseForToken(req.accessToken);
+  const [models, agencies] = await Promise.all([
+    client.from('model_members').select('model_id,role,status').eq('user_id', req.userId).eq('status', 'active'),
+    client.from('agency_members').select('agency_id,role,status').eq('user_id', req.userId).eq('status', 'active')
+  ]);
+  if (models.error || agencies.error) return res.status(503).json({ success: false, error: { code: 'access_lookup_failed', message: 'Unable to resolve account access.' } });
+  if (!models.data?.length && !agencies.data?.length) return res.status(403).json({ success: false, error: { code: 'no_membership', message: 'No active membership.' } });
+  return res.json({ success: true, destination: agencies.data?.length ? 'agency' : 'model', models: models.data?.map(row => row.model_id) || [], agencies: agencies.data?.map(row => ({ id: row.agency_id, role: row.role })) || [] });
+});
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
+app.get('/login', (_req, res) => res.sendFile(path.join(publicDir, 'login.html')));
+app.get('/forgot-password', (_req, res) => res.sendFile(path.join(publicDir, 'forgot-password.html')));
+app.get('/reset-password', (_req, res) => res.sendFile(path.join(publicDir, 'reset-password.html')));
+app.get('/auth/callback', (_req, res) => res.sendFile(path.join(publicDir, 'auth-callback.html')));
+app.get('/access-denied', (_req, res) => res.sendFile(path.join(publicDir, 'access-denied.html')));
 app.get('/dashboard', (_req, res) => res.sendFile(path.join(publicDir, 'dashboard.html')));
 app.use(express.static(publicDir, { dotfiles: 'deny', etag: true, maxAge: isProduction ? '1h' : 0, index: 'index.html' }));
 app.use('/api', (_req, res) => res.status(404).json({ ok: false, message: 'Not found.' }));

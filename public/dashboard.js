@@ -1,35 +1,134 @@
-const demo = {
-  portfolio: {
-    title: 'Agency earnings', description: 'A complete view of revenue, audience and model performance.', credits: 3132263, revenue: 40719.42, sales: 7181, buyers: 2613, messages: 997083,
-    models: [
-      {name:'Alanna Powell',handle:'@alannap',revenue:23050.86,credits:1773143,conversion:8.4,trend:18,initials:'AP'},
-      {name:'Callie Stone',handle:'@calliestone',revenue:6932.38,credits:533260,conversion:7.1,trend:12,initials:'CS'},
-      {name:'Riti Sid',handle:'@ritisid',revenue:2545.31,credits:195793,conversion:6.8,trend:9,initials:'RS'},
-      {name:'Autumn Renae',handle:'@autumnr',revenue:2524.77,credits:194213,conversion:7.6,trend:15,initials:'AR'},
-      {name:'Dan Dangler',handle:'@dandangler',revenue:1990.75,credits:153135,conversion:5.9,trend:6,initials:'DD'},
-      {name:'Hazey Haley',handle:'@hazeyh',revenue:1769.34,credits:136103,conversion:6.3,trend:11,initials:'HH'},
-      {name:'Natalia Lucca',handle:'@natalial',revenue:952.50,credits:73269,conversion:4.8,trend:4,initials:'NL'},
-      {name:'Cat Chase',handle:'@catchase',revenue:605.35,credits:46565,conversion:4.2,trend:3,initials:'CC'}
-    ]
-  },
-  model: {title:'Alanna’s earnings',description:'Revenue, audience engagement and transactions for Alanna Powell.',credits:1773143,revenue:23050.86,sales:4207,buyers:1512,messages:468676,models:[]}
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+const $ = (selector) => document.querySelector(selector);
+const $$ = (selector) => [...document.querySelectorAll(selector)];
+const number = new Intl.NumberFormat('en-US');
+const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+let range = '1M';
+let transactions = [];
+let history = [];
+const authConfig = await fetch('/api/auth/config').then((response) => response.json());
+const supabase = createClient(authConfig.url, authConfig.anonKey, { auth: { persistSession: true, autoRefreshToken: true } });
+const { data: { session } } = await supabase.auth.getSession();
+if (!session) location.replace(`/login?next=${encodeURIComponent(location.pathname)}`);
+
+const numeric = (input) => Number.isFinite(Number(input)) ? Number(input) : 0;
+const escapeHtml = (input) => String(input ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+const list = (payload, ...keys) => {
+  for (const key of keys) if (Array.isArray(payload?.[key])) return payload[key];
+  return Array.isArray(payload) ? payload : [];
 };
-const transactions = [
-  {user:'Lou M.',model:'Alanna Powell',credits:400,revenue:5.20,time:'2 min ago'}, {user:'Don R.',model:'Alanna Powell',credits:100,revenue:1.30,time:'8 min ago'},
-  {user:'D. Onkoffi',model:'Callie Stone',credits:350,revenue:4.55,time:'14 min ago'}, {user:'Marcus J.',model:'Riti Sid',credits:800,revenue:10.40,time:'22 min ago'},
-  {user:'Eli T.',model:'Autumn Renae',credits:250,revenue:3.25,time:'31 min ago'}, {user:'Liam R.',model:'Alanna Powell',credits:1200,revenue:15.60,time:'46 min ago'},
-  {user:'Alex B.',model:'Hazey Haley',credits:500,revenue:6.50,time:'1 hr ago'}, {user:'Sam K.',model:'Dan Dangler',credits:350,revenue:4.55,time:'1 hr ago'}
-];
-const revenueSeries = Array.from({length:30},(_,i)=>Math.round(680+Math.sin(i*.72)*220+Math.cos(i*.31)*130+(i===9?480:0)+(i===20?330:0)));
-const previousSeries = revenueSeries.map((v,i)=>Math.round(v*(.68+Math.sin(i*.2)*.08)));
-const fmt = new Intl.NumberFormat('en-US'); const money = n => '$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-let currentView='portfolio', currentRange=30;
-const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-function spark(el,color,values){const max=Math.max(...values),min=Math.min(...values);el.innerHTML=`<svg viewBox="0 0 160 45" preserveAspectRatio="none"><path d="${values.map((v,i)=>`${i?'L':'M'} ${i/(values.length-1)*160} ${42-(v-min)/(max-min)*36}`).join(' ')}" fill="none" stroke="${color}" stroke-width="2"/></svg>`}
-function renderTransactions(filter=''){const q=filter.toLowerCase();$('#transactions').innerHTML=transactions.filter(t=>`${t.user} ${t.model}`.toLowerCase().includes(q)).map(t=>`<div class="transaction"><div class="user"><i>${t.user.split(' ').map(x=>x[0]).join('').slice(0,2)}</i><span><b>${t.user}</b><small>${t.time}</small></span></div><span class="model-name">${t.model}</span><span class="credit-pill">✦ ${fmt.format(t.credits)}</span><strong>${money(t.revenue)}</strong></div>`).join('')||'<p class="empty">No matching transactions.</p>'}
-function renderModels(sort='revenue'){let models=[...demo.portfolio.models].sort((a,b)=>b[sort]-a[sort]);$('#model-grid').innerHTML=models.map(m=>`<article class="model-card"><div class="model-card-head"><i class="model-avatar">${m.initials}</i><p><b>${m.name}</b><span>${m.handle}</span></p></div><a href="#" aria-label="Open ${m.name}">↗</a><strong>${money(m.revenue)}</strong><span>✦ ${fmt.format(m.credits)} credits</span><small>+${m.trend}%</small><div class="progress"><i style="width:${Math.min(100,m.conversion*10)}%"></i></div></article>`).join('')}
-function renderView(view){currentView=view;const d=demo[view];$('#view-title').textContent=d.title;$('#view-description').textContent=d.description;$('#credits-total').textContent=fmt.format(d.credits);$('#revenue-total').textContent=money(d.revenue);$('#sales-total').textContent=fmt.format(d.sales);$('#buyers-total').textContent=fmt.format(d.buyers);$('#messages-total').textContent=fmt.format(d.messages);$('#average-total').textContent=money(d.revenue/d.buyers);$('#chart-total').textContent=money(d.revenue);$('#model-count').textContent=view==='portfolio'?'8 models':'Alanna Powell';$('.models-panel').style.display=view==='portfolio'?'block':'none';$$('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.view===view));drawChart()}
-function drawChart(){const canvas=$('#revenue-chart'),box=canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);canvas.width=box.width*dpr;canvas.height=box.height*dpr;const c=canvas.getContext('2d');c.scale(dpr,dpr);const w=box.width,h=box.height,p={l:42,r:12,t:12,b:30};let data=revenueSeries.slice(-Math.min(currentRange,30));let prev=previousSeries.slice(-data.length);if(currentView==='model')data=data.map(v=>v*.56);const max=Math.max(...data)*1.15;c.clearRect(0,0,w,h);c.font='8px DM Sans';c.fillStyle='#59535f';c.strokeStyle='#ffffff0c';c.lineWidth=1;for(let i=0;i<5;i++){const y=p.t+(h-p.t-p.b)*i/4;c.beginPath();c.moveTo(p.l,y);c.lineTo(w-p.r,y);c.stroke();c.fillText('$'+Math.round(max*(1-i/4)),3,y+3)}const pts=(arr)=>arr.map((v,i)=>({x:p.l+i/(arr.length-1)*(w-p.l-p.r),y:p.t+(1-v/max)*(h-p.t-p.b)}));const line=(points,color,width,fill)=>{c.beginPath();points.forEach((pt,i)=>i?c.lineTo(pt.x,pt.y):c.moveTo(pt.x,pt.y));if(fill){c.lineTo(points.at(-1).x,h-p.b);c.lineTo(points[0].x,h-p.b);c.closePath();const g=c.createLinearGradient(0,p.t,0,h-p.b);g.addColorStop(0,'#43e28b38');g.addColorStop(1,'#43e28b00');c.fillStyle=g;c.fill();c.beginPath();points.forEach((pt,i)=>i?c.lineTo(pt.x,pt.y):c.moveTo(pt.x,pt.y))}c.strokeStyle=color;c.lineWidth=width;c.stroke()};line(pts(prev),'#705080',1.2,false);line(pts(data),'#43e28b',2,true);canvas._points=pts(data);canvas._data=data}
-function showTooltip(e){const canvas=e.currentTarget,rect=canvas.getBoundingClientRect(),x=e.clientX-rect.left,points=canvas._points||[];let closest=points.reduce((a,b)=>Math.abs(b.x-x)<Math.abs(a.x-x)?b:a,points[0]);if(!closest)return;let i=points.indexOf(closest),tip=$('#chart-tooltip');tip.style.display='block';tip.style.left=Math.min(rect.width-100,closest.x+8)+'px';tip.style.top=Math.max(5,closest.y-35)+'px';tip.textContent=`Day ${i+1} · ${money(canvas._data[i])}`}
-$$('.tabs button').forEach(b=>b.addEventListener('click',()=>renderView(b.dataset.view)));$$('.ranges button').forEach(b=>b.addEventListener('click',()=>{currentRange=+b.dataset.range;$$('.ranges button').forEach(x=>x.classList.toggle('active',x===b));drawChart()}));$('#transaction-search').addEventListener('input',e=>renderTransactions(e.target.value));$('#model-sort').addEventListener('change',e=>renderModels(e.target.value));$('#revenue-chart').addEventListener('mousemove',showTooltip);$('#revenue-chart').addEventListener('mouseleave',()=>$('#chart-tooltip').style.display='none');$('#refresh').addEventListener('click',()=>{document.body.classList.add('refreshing');setTimeout(()=>{document.body.classList.remove('refreshing');renderView(currentView)},700)});$('.mobile-menu').addEventListener('click',e=>{const open=$('.top-actions').classList.toggle('open');e.currentTarget.setAttribute('aria-expanded',open)});window.addEventListener('resize',drawChart);
-spark($('#credit-spark'),'#ffd84d',[3,6,4,9,7,12,10,14,17,15,20]);spark($('#revenue-spark'),'#43e28b',[4,5,8,7,11,9,13,15,14,18,22]);renderTransactions();renderModels();renderView('portfolio');
+
+async function api(path) {
+  const response = await fetch(path, { credentials: 'same-origin', headers: { Accept: 'application/json', Authorization: `Bearer ${session.access_token}` } });
+  if (response.status === 401) {
+    location.assign(`/login?next=${encodeURIComponent(location.pathname)}`);
+    throw new Error('Authentication required');
+  }
+  if (!response.ok) throw new Error(`Request failed (${response.status})`);
+  return response.json();
+}
+
+function resetMetrics() {
+  ['credits-total', 'revenue-total', 'sales-total', 'buyers-total', 'messages-total', 'average-total', 'chart-total']
+    .forEach((id) => { document.getElementById(id).textContent = '—'; });
+  $('#credit-spark').innerHTML = '';
+  $('#revenue-spark').innerHTML = '';
+}
+
+function renderSummary(payload = {}) {
+  const data = payload.data || payload.summary || payload;
+  const stars = numeric(data.totalStars ?? data.total_stars ?? data.stars);
+  const revenue = numeric(data.totalRevenue ?? data.total_revenue ?? data.revenue);
+  const sales = numeric(data.totalSales ?? data.total_sales ?? data.sales);
+  const buyers = numeric(data.uniqueBuyers ?? data.unique_buyers ?? data.buyers);
+  const messages = numeric(data.messages ?? data.total_messages);
+  $('#credits-total').textContent = number.format(stars);
+  $('#revenue-total').textContent = currency.format(revenue);
+  $('#sales-total').textContent = number.format(sales);
+  $('#buyers-total').textContent = number.format(buyers);
+  $('#messages-total').textContent = number.format(messages);
+  $('#average-total').textContent = currency.format(buyers ? revenue / buyers : 0);
+  $('#chart-total').textContent = currency.format(revenue);
+  $('#workspace-name').textContent = data.workspaceName ?? data.workspace_name ?? data.agencyName ?? data.agency_name ?? 'My earnings';
+  $('#view-title').textContent = data.title ?? (data.role === 'agency' ? 'Agency earnings' : 'Your earnings');
+  $('#view-description').textContent = 'Live earnings synced securely from Telegram.';
+  const modelCount = data.modelCount ?? data.model_count;
+  $('#model-count').textContent = modelCount == null ? 'your account' : `${modelCount} models`;
+}
+
+function renderTransactions(filter = '') {
+  const query = filter.trim().toLowerCase();
+  const filtered = transactions.filter((item) => `${item.user ?? item.customer ?? ''} ${item.model ?? item.model_name ?? ''}`.toLowerCase().includes(query));
+  $('#transactions').innerHTML = filtered.map((item) => {
+    const user = escapeHtml(item.user ?? item.customer ?? 'Customer');
+    const model = escapeHtml(item.model ?? item.model_name ?? '—');
+    const initials = user.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
+    return `<div class="transaction"><div class="user"><i>${initials}</i><span><b>${user}</b><small>${escapeHtml(item.time ?? item.created_at ?? '')}</small></span></div><span class="model-name">${model}</span><span class="credit-pill">✦ ${number.format(numeric(item.stars ?? item.credits))}</span><strong>${currency.format(numeric(item.revenue ?? item.amount))}</strong></div>`;
+  }).join('') || '<p class="empty">No transactions found for this period.</p>';
+}
+
+function renderModels(payload) {
+  const models = list(payload, 'models', 'data');
+  $('#model-grid').innerHTML = models.map((model) => {
+    const name = escapeHtml(model.name ?? model.display_name ?? 'Model');
+    const initials = name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
+    return `<article class="model-card"><div class="model-card-head"><i class="model-avatar">${initials}</i><p><b>${name}</b><span>${escapeHtml(model.handle ?? '')}</span></p></div><strong>${currency.format(numeric(model.revenue ?? model.total_revenue))}</strong><span>✦ ${number.format(numeric(model.stars ?? model.total_stars))} stars</span></article>`;
+  }).join('') || '<p class="empty">No models have reported earnings yet.</p>';
+  $('.models-panel').hidden = models.length === 0;
+}
+
+function drawChart() {
+  const canvas = $('#revenue-chart');
+  const box = canvas.getBoundingClientRect();
+  const ratio = Math.min(devicePixelRatio || 1, 2);
+  canvas.width = Math.max(1, box.width * ratio);
+  canvas.height = Math.max(1, box.height * ratio);
+  const context = canvas.getContext('2d');
+  context.scale(ratio, ratio);
+  context.clearRect(0, 0, box.width, box.height);
+  if (!history.length) {
+    context.fillStyle = '#77717d'; context.font = '12px DM Sans'; context.textAlign = 'center';
+    context.fillText('No revenue history available yet', box.width / 2, box.height / 2);
+    return;
+  }
+  const values = history.map((point) => numeric(point.revenue ?? point.amount ?? point.value));
+  const pad = { l: 42, r: 12, t: 12, b: 30 };
+  const max = Math.max(...values, 1) * 1.12;
+  const points = values.map((item, index) => ({ x: pad.l + (values.length === 1 ? 0 : index / (values.length - 1)) * (box.width - pad.l - pad.r), y: pad.t + (1 - item / max) * (box.height - pad.t - pad.b) }));
+  context.beginPath(); points.forEach((point, index) => index ? context.lineTo(point.x, point.y) : context.moveTo(point.x, point.y));
+  context.strokeStyle = '#43e28b'; context.lineWidth = 2; context.stroke();
+}
+
+async function loadDashboard() {
+  resetMetrics();
+  $('#transactions').innerHTML = '<p class="empty">Loading live data…</p>';
+  $('#model-grid').innerHTML = '<p class="empty">Loading models…</p>';
+  try {
+    const [summary, revenue, activity, models, health] = await Promise.all([
+      api(`/api/dashboard/summary?range=${range}`), api(`/api/dashboard/revenue-history?range=${range}`),
+      api(`/api/dashboard/transactions?range=${range}`), api('/api/agency/models').catch(() => ({ models: [] })),
+      api('/api/dashboard/sync-health').catch(() => null)
+    ]);
+    renderSummary(summary);
+    history = list(revenue, 'history', 'data', 'points');
+    transactions = list(activity, 'transactions', 'data');
+    renderTransactions($('#transaction-search').value); renderModels(models); drawChart();
+    const synced = health?.last_successful_sync_at ?? health?.lastSyncedAt ?? health?.last_synced_at;
+    $('.sync').innerHTML = `<i></i> ${synced ? `Synced ${new Date(synced).toLocaleString()}` : 'Waiting for first sync'}`;
+    $('.eyebrow span').textContent = 'LIVE DATA';
+  } catch {
+    $('#view-title').textContent = 'No earnings data yet';
+    $('#view-description').textContent = 'Live values will appear after the first successful n8n sync.';
+    $('#transactions').innerHTML = '<p class="empty">No transactions available.</p>';
+    $('#model-grid').innerHTML = '<p class="empty">No models available.</p>';
+    $('.eyebrow span').textContent = 'NO DATA'; drawChart();
+  } finally { document.body.classList.remove('refreshing'); }
+}
+
+$$('.ranges button').forEach((button) => button.addEventListener('click', () => { range = button.dataset.range; $$('.ranges button').forEach((item) => item.classList.toggle('active', item === button)); loadDashboard(); }));
+$('#transaction-search').addEventListener('input', (event) => renderTransactions(event.target.value));
+$('#refresh').addEventListener('click', () => { document.body.classList.add('refreshing'); loadDashboard(); });
+$('.mobile-menu').addEventListener('click', (event) => { const open = $('.top-actions').classList.toggle('open'); event.currentTarget.setAttribute('aria-expanded', String(open)); });
+window.addEventListener('resize', drawChart);
+loadDashboard();

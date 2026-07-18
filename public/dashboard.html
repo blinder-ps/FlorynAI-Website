@@ -15,30 +15,30 @@
   <div class="grid-bg" aria-hidden="true"></div>
   <header class="topbar">
     <a class="logo" href="/" aria-label="Floryn home"><img src="images/logo.png" alt="Floryn"></a>
-    <button class="workspace" type="button" aria-haspopup="listbox"><span class="avatar">AP</span><span><small>WORKSPACE</small><b id="workspace-name">Aria Models</b></span><i>⌄</i></button>
+    <button class="workspace" type="button" aria-haspopup="listbox"><span class="avatar">FL</span><span><small>WORKSPACE</small><b id="workspace-name">Loading…</b></span><i>⌄</i></button>
     <nav class="tabs" aria-label="Dashboard views"><button class="active" data-view="portfolio">Portfolio</button><button data-view="model">Model view</button></nav>
-    <div class="top-actions"><span class="sync"><i></i> Synced 2:00 AM</span><button class="icon-btn" id="refresh" type="button" aria-label="Refresh data">↻</button><button class="currency active" type="button">USD</button><button class="currency" type="button">AUD</button><a class="exit" href="/">Exit dashboard</a></div>
+    <div class="top-actions"><span class="sync"><i></i> Connecting…</span><button class="icon-btn" id="refresh" type="button" aria-label="Refresh data">↻</button><button class="currency active" type="button">USD</button><button class="currency" type="button">AUD</button><a class="exit" href="/">Exit dashboard</a></div>
     <button class="mobile-menu" type="button" aria-label="Open controls" aria-expanded="false">•••</button>
   </header>
 
   <main class="dashboard-wrap">
-    <div class="page-head"><div><div class="eyebrow"><i></i> LIVE PERFORMANCE <span>DEMO DATA</span></div><h1 id="view-title">Agency earnings</h1><p id="view-description">A complete view of revenue, audience and model performance.</p></div><div class="date-control"><button type="button">Jul 17, 2026</button><span>to</span><button type="button">Aug 17, 2026</button></div></div>
+    <div class="page-head"><div><div class="eyebrow"><i></i> LIVE PERFORMANCE <span>CONNECTING</span></div><h1 id="view-title">Loading earnings</h1><p id="view-description">Connecting to your live earnings data.</p></div></div>
 
     <section class="hero-kpis" aria-label="Primary earnings metrics">
-      <article class="hero-card stars"><div class="card-top"><span>TOTAL CREDITS</span><i>✦</i></div><strong id="credits-total">3,132,263</strong><p><b>✦</b> Audience credits across <span id="model-count">8 models</span></p><div class="spark" id="credit-spark" aria-hidden="true"></div></article>
-      <article class="hero-card revenue"><div class="card-top"><span>TOTAL REVENUE</span><i>↗</i></div><strong id="revenue-total">$40,719.42</strong><p><em>+18.4%</em> compared with previous period</p><div class="spark" id="revenue-spark" aria-hidden="true"></div></article>
+      <article class="hero-card stars"><div class="card-top"><span>TOTAL TELEGRAM STARS</span><i>✦</i></div><strong id="credits-total">—</strong><p><b>✦</b> Stars across <span id="model-count">your account</span></p><div class="spark" id="credit-spark" aria-hidden="true"></div></article>
+      <article class="hero-card revenue"><div class="card-top"><span>TOTAL REVENUE</span><i>↗</i></div><strong id="revenue-total">—</strong><p>For the selected period</p><div class="spark" id="revenue-spark" aria-hidden="true"></div></article>
     </section>
 
     <section class="mini-kpis" aria-label="Supporting metrics">
-      <article><div class="metric-icon">▣</div><div><span>SALES</span><strong id="sales-total">7,181</strong></div><small>+12.8%</small></article>
-      <article><div class="metric-icon">◉</div><div><span>UNIQUE BUYERS</span><strong id="buyers-total">2,613</strong></div><small>+9.2%</small></article>
-      <article><div class="metric-icon">◌</div><div><span>MESSAGES</span><strong id="messages-total">997,083</strong></div><small>+22.1%</small></article>
-      <article><div class="metric-icon">◇</div><div><span>AVG. REVENUE / BUYER</span><strong id="average-total">$15.58</strong></div><small>+4.6%</small></article>
+      <article><div class="metric-icon">▣</div><div><span>SALES</span><strong id="sales-total">—</strong></div></article>
+      <article><div class="metric-icon">◉</div><div><span>UNIQUE BUYERS</span><strong id="buyers-total">—</strong></div></article>
+      <article><div class="metric-icon">◌</div><div><span>MESSAGES</span><strong id="messages-total">—</strong></div></article>
+      <article><div class="metric-icon">◇</div><div><span>AVG. REVENUE / BUYER</span><strong id="average-total">—</strong></div></article>
     </section>
 
     <section class="analytics-grid">
       <article class="panel chart-panel">
-        <div class="panel-head"><div><span>REVENUE HISTORY</span><h2 id="chart-total">$40,719.42</h2></div><div class="ranges" role="group" aria-label="Chart range"><button data-range="7">7D</button><button data-range="14">2W</button><button class="active" data-range="30">1M</button><button data-range="90">3M</button><button data-range="180">6M</button><button data-range="365">1Y</button></div></div>
+        <div class="panel-head"><div><span>REVENUE HISTORY</span><h2 id="chart-total">—</h2></div><div class="ranges" role="group" aria-label="Chart range"><button data-range="1D">1D</button><button data-range="3D">3D</button><button data-range="1W">1W</button><button class="active" data-range="1M">1M</button><button data-range="3M">3M</button><button data-range="6M">6M</button><button data-range="1Y">1Y</button></div></div>
         <div class="chart-wrap"><canvas id="revenue-chart" role="img" aria-label="Revenue history line chart"></canvas><div class="tooltip" id="chart-tooltip"></div></div>
         <div class="chart-legend"><span><i class="green"></i> Revenue</span><span><i class="purple"></i> Previous period</span></div>
       </article>
@@ -55,6 +55,6 @@
       <div class="model-grid" id="model-grid"></div>
     </section>
   </main>
-  <script src="dashboard.js"></script>
+  <script type="module" src="dashboard.js"></script>
 </body>
 </html>
